@@ -76,8 +76,15 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'sql_server.pyodbc',
+        'NAME': 'CLD-IT-DEV-PIH-DB1',
+        'USER': 'PIH-admin',
+        'PASSWORD': 'Password@1234Momentive!',
+        'HOST': 'pih.database.windows.net',
+        'PORT': '',
+        'OPTIONS': {
+            'driver': 'SQL Server Native Client 11.0',
+        }
     }
 }
 
