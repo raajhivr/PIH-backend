@@ -6,38 +6,40 @@ from django.http import JsonResponse
 from webapp.models import ProductInscope
 from django.db.models import Q
 import json
-# product = ProductInscope.objects.all()
-product_list=[]
+from django_pandas.io import read_frame
+import re
+
 product_column = ["nam_prod","bdt","cas_no","spec_id","material_no"]
+df_product = read_frame(ProductInscope.objects.all(),fieldnames=product_column)
+product_list=[]
 last=''
+nam_row=[]
+bdt_row=[]
 @csrf_exempt
 def index(requests):
     global last
+    global product_list
     if requests.method=="POST": 
+        nam_row=[]
+        bdt_row=[]
         items=[]
         data = requests.body.decode('utf-8')
         data1=json.loads(data)
-        search = data1.get("SearchData",None)
+        search = data1.get("SearchData",None).strip()
         if last != search:
             product_list=[]
-            product = ProductInscope.objects.filter(Q(nam_prod__startswith=search.lower())|
-                                                Q(bdt__startswith=search.lower()))
-            for row in product:
-                namprod={"name":row.nam_prod,"type":"Namprod"}
-                product_list.append(namprod)
-                bdt={"name":row.bdt,"type":"BDT"}
-                product_list.append(bdt)
-        # for row in cursor:
-        #     val=row[0]
-        #     if data.get('search_key').lower() in str(val).lower():
-        #         rdata={"name":str(val),
-        #                 "type":"Namprod"}
-        #         items.append(rdata)
-        # parameter = config.DATABASES
+            rex=re.compile(r"(^{})".format(search),re.I)
+            for column in product_column:
+                edit_df=df_product[df_product[column].str.contains(rex)]
+                column_value=edit_df[column].unique()
+                for item in column_value:
+                    out_dict={"name":item,"type":column}
+                    product_list.append(out_dict)
+                
         last=search
         res=sorted(product_list, key=lambda k: k['type']) 
         return JsonResponse(res,content_type="application/json",safe=False)
         # return JsonResponse(product_list)
     elif requests.method=="GET":
         print("mmmm",requests.body)
-        return HttpResponse("hello world")
+        return HttpResponse("get function called")
