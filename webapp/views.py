@@ -13,8 +13,7 @@ product_column = ["nam_prod","bdt","cas_no","spec_id","material_no"]
 df_product = read_frame(ProductInscope.objects.all(),fieldnames=product_column)
 product_list=[]
 last=''
-nam_row=[]
-bdt_row=[]
+
 @csrf_exempt
 def index(requests):
     global last
