@@ -20,12 +20,9 @@ def index(requests):
     global last
     global product_list
     if requests.method=="POST": 
-        nam_row=[]
-        bdt_row=[]
-        items=[]
         data = requests.body.decode('utf-8')
-        data1=json.loads(data)
-        search = data1.get("SearchData",None).strip()
+        data_json=json.loads(data)
+        search = data_json.get("SearchData",None).strip()
         if last != search:
             product_list=[]
             rex=re.compile(r"(^{})".format(search),re.I)
