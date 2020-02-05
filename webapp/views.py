@@ -9,16 +9,17 @@ from django_pandas.io import read_frame
 import re
 import pandas as pd
 
-product_column = ["NAM PROD","BDT","CAS NUMBER","REAL-SPEC","MATERIAL NUMBER","DESCRIPTION"]
+product_column = ["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER","DESCRIPTION"]
 df_product = pd.read_excel(r"C:/Coding/momentive-backend/inscope-mat-list.xlsx")
-df_product_combine = df_product.copy()
-# df_product_combine["MATERIAL NUMBER"] = df_product_combine["MATERIAL NUMBER"].astype('str')+df_product_combine["DESCRIPTION"]
 # df_product = read_frame(ProductInscope.objects.all())
 
 df_product.drop_duplicates(inplace=True)
 df_product.columns=product_column
+df_product_combine = df_product.copy()
 last=''
-print(len(df_product))
+df_product_combine["MATERIAL NUMBER"] = df_product_combine["MATERIAL NUMBER"].astype('str')+" "+df_product_combine["DESCRIPTION"]
+df_product_combine.drop(columns=["DESCRIPTION"],inplace=True)
+
 
 def inscope_product_details():
     return df_product,product_column
@@ -29,7 +30,7 @@ def all_products(requests):
         global last
         if requests.method=="POST":
             try: 
-                all_products_product_column=["NAM PROD","BDT","CAS NUMBER","REAL-SPEC","MATERIAL NUMBER"]
+                all_products_product_column=["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER"]
                 data=''
                 data_json=''
                 search=''
@@ -41,7 +42,7 @@ def all_products(requests):
                     all_product_list=[]
                     rex=re.compile(r"(^{})".format(search),re.I)
                     for column in all_products_product_column:
-                        edit_df=df_product[df_product[column].astype(str).str.contains(rex,na=False)]
+                        edit_df=df_product_combine[df_product_combine[column].astype(str).str.contains(rex,na=False)]
                         column_value=edit_df[column].unique()
                         for item in column_value:
                             out_dict={"name":str(item).strip(),"type":column}
@@ -67,11 +68,11 @@ def selected_products(requests):
                 data=''
                 data_json=''
                 column_add=[]
-                all_product_column=["NAM PROD","BDT","CAS NUMBER","REAL-SPEC","MATERIAL NUMBER"]
+                all_product_column=["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER"]
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 print("selectedproducts",data_json)
-                filter_df=df_product.copy()            
+                filter_df=df_product_combine.copy()            
                 for item in data_json:
                     search_value = item.get("name")
                     search_column = item.get("type")
@@ -110,7 +111,7 @@ def selected_categories(requests):
                 print("selected_categories",data_json)
                 search_category = data_json.get("SelectedKey",None).strip()
                 if search_category in product_column:
-                    column_value=df_product[search_category].unique()
+                    column_value=df_product_combine[search_category].unique()
                     for item in column_value:
                         out_dict={"name":str(item).strip(),"type":search_category}
                         category_product_list.append(out_dict)  
