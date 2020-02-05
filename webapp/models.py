@@ -13,10 +13,8 @@ class ProductInscope(models.Model):
     bdt = models.CharField(max_length=8000, blank=True, null=True)
     cas_no = models.CharField(max_length=8000, blank=True, null=True)
     spec_id = models.CharField(max_length=8000, blank=True, null=True)
-    material_no = models.CharField(max_length=8000, blank=True, null=False, primary_key=True)
-
+    material_no = models.CharField(max_length=8000, primary_key=True)
+    
     class Meta:
         managed = False
         db_table = '[momentive].[product_inscope]'
-    def __str__(self):
-        return (self.material_no)
