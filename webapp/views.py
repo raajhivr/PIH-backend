@@ -9,7 +9,7 @@ from django_pandas.io import read_frame
 import re
 import pandas as pd
 
-product_column = ["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER","DESCRIPTION"]
+product_column = ["SPEC-ID","NAM PROD","MATERIAL NUMBER","DESCRIPTION","BDT","CAS NUMBER"]
 df_product = pd.read_excel(r"C:/Coding/momentive-backend/inscope-mat-list.xlsx")
 # df_product = read_frame(ProductInscope.objects.all())
 
@@ -19,26 +19,27 @@ df_product_combine = df_product.copy()
 last=''
 df_product_combine["MATERIAL NUMBER"] = df_product_combine["MATERIAL NUMBER"].astype('str')+" "+df_product_combine["DESCRIPTION"]
 df_product_combine.drop(columns=["DESCRIPTION"],inplace=True)
-
+product_column_combine = ["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER"]
 
 def inscope_product_details():
-    return df_product,product_column
+    return df_product,df_product_combine,product_column,product_column_combine
 
 @csrf_exempt
 def all_products(requests):
     try:
-        global last
         if requests.method=="POST":
             try: 
-                all_products_product_column=["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER"]
+                all_products_product_column=["SPEC-ID","NAM PROD","MATERIAL NUMBER","BDT","CAS NUMBER"]
+                selected_categories=["BDT","NAM","CAS","MAT","SPEC"]
+                matched_categories = [["BDT","BDT"],["NAM","NAM PROD"],["MAT","MATERIAL NUMBER"],["CAS","CAS NUMBER"],["SPEC","SPEC-ID"]]
                 data=''
                 data_json=''
                 search=''
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 search = data_json.get("SearchData",None).strip()
-                print("all_products",data_json)
-                if last != search:
+                if search.upper() not in selected_categories:
+                    print("all_products",data_json)
                     all_product_list=[]
                     rex=re.compile(r"(^{})".format(search),re.I)
                     for column in all_products_product_column:
@@ -47,17 +48,25 @@ def all_products(requests):
                         for item in column_value:
                             out_dict={"name":str(item).strip(),"type":column}
                             all_product_list.append(out_dict)  
-                last=search
-                print("len of all_product_list",len(all_product_list))
-                print(all_product_list[0:5])
-                res=sorted(all_product_list, key=lambda k: k['type']) 
+                    print("len of all_product_list",len(all_product_list))
+                    print(all_product_list[0:5])
+                    res=sorted(all_product_list, key=lambda k: k['type']) 
+                else:
+                    all_product_list=[]
+                    for item,match in matched_categories:
+                        if search.upper()==item:
+                            column_value=df_product_combine[match].unique()
+                            for value in column_value:
+                                out_dict={"name":str(value).strip(),"type":match}
+                                all_product_list.append(out_dict)
+                                res = all_product_list
+                            break
                 return JsonResponse(res,content_type="application/json",safe=False)
             except Exception as e:
-                return JsonResponse([],content_type="application/json",safe=False)
                 print(e)
+                return JsonResponse([],content_type="application/json",safe=False)               
     except Exception as e:
         print(e)
-
 
 @csrf_exempt
 def selected_products(requests):
@@ -68,7 +77,7 @@ def selected_products(requests):
                 data=''
                 data_json=''
                 column_add=[]
-                all_product_column=["NAM PROD","BDT","CAS NUMBER","SPEC-ID","MATERIAL NUMBER"]
+                all_product_column=["SPEC-ID","NAM PROD","MATERIAL NUMBER","BDT","CAS NUMBER"]
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 print("selectedproducts",data_json)
