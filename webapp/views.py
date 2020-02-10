@@ -38,7 +38,20 @@ def all_products(requests):
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 search = data_json.get("SearchData",None).strip()
-                if search.upper() not in selected_categories:
+                res=''
+                if len(search) >= 3 and search.upper() in selected_categories:
+                    print("typecat",search)
+                    all_product_list=[]
+                    for item,match in matched_categories:
+                        if search.upper()==item:
+                            column_value=df_product_combine[match].unique()
+                            for value in column_value:
+                                out_dict={"name":str(value).strip(),"type":match}
+                                all_product_list.append(out_dict)
+                                res = all_product_list
+                            break
+                    print("new cat",res)
+                else:
                     print("all_products",data_json)
                     all_product_list=[]
                     rex=re.compile(r"(^{})".format(search),re.I)
@@ -50,17 +63,7 @@ def all_products(requests):
                             all_product_list.append(out_dict)  
                     print("len of all_product_list",len(all_product_list))
                     print(all_product_list[0:5])
-                    res=sorted(all_product_list, key=lambda k: k['type']) 
-                else:
-                    all_product_list=[]
-                    for item,match in matched_categories:
-                        if search.upper()==item:
-                            column_value=df_product_combine[match].unique()
-                            for value in column_value:
-                                out_dict={"name":str(value).strip(),"type":match}
-                                all_product_list.append(out_dict)
-                                res = all_product_list
-                            break
+                    res=sorted(all_product_list, key=lambda k: k['type'])
                 return JsonResponse(res,content_type="application/json",safe=False)
             except Exception as e:
                 print(e)
