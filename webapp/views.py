@@ -35,22 +35,38 @@ def all_products(requests):
                 data=''
                 data_json=''
                 search=''
+                search_split=''
+                search_key=''
+                search_value=''
+                edit_df=pd.DataFrame()
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 search = data_json.get("SearchData",None).strip()
                 res=''
-                if len(search) >= 3 and search.upper() in selected_categories:
-                    print("typecat",search)
+                if "*" in search:
+                    search_split=search.split('*')
+                    search_key=search_split[0]
+                    search_value = search_split[1].strip()
+
+                if len(search)>=3 and (search_key.upper() in selected_categories or search.upper() in selected_categories):
+                    print("typecat",search_key)
+                    print("typeval",search_value)
                     all_product_list=[]
                     for item,match in matched_categories:
-                        if search.upper()==item:
-                            column_value=df_product_combine[match].unique()
+                        if search_key.upper()==item or search.upper()==item:
+                            if len(search_value)>0:
+                                rex=re.compile(r"(^{})".format(search_value),re.I)
+                                edit_df=df_product_combine[df_product_combine[match].astype(str).str.contains(rex,na=False)]
+                                column_value=edit_df[match].unique()
+                            else:
+                                column_value=df_product_combine[match].unique()                         
                             for value in column_value:
                                 out_dict={"name":str(value).strip(),"type":match}
                                 all_product_list.append(out_dict)
-                                res = all_product_list
                             break
                     print("new cat",res)
+                    return JsonResponse(all_product_list,content_type="application/json",safe=False)
+                    
                 else:
                     print("all_products",data_json)
                     all_product_list=[]
@@ -64,7 +80,7 @@ def all_products(requests):
                     print("len of all_product_list",len(all_product_list))
                     print(all_product_list[0:5])
                     res=sorted(all_product_list, key=lambda k: k['type'])
-                return JsonResponse(res,content_type="application/json",safe=False)
+                    return JsonResponse(res,content_type="application/json",safe=False)
             except Exception as e:
                 print(e)
                 return JsonResponse([],content_type="application/json",safe=False)               
