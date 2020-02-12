@@ -44,7 +44,7 @@ datashape==0.5.4
 decorator==4.3.0
 defusedxml==0.5.0
 distributed==1.23.1
-Django==2.1.15
+Django==2.2.10
 django-pyodbc-azure==2.1.0.0
 docopt==0.6.2
 docutils==0.14
