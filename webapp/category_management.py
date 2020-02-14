@@ -2,14 +2,14 @@ from django.http import HttpResponse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-from webapp.models import ProductInscope
+from webapp.models import ProductInformation
 from django.db.models import Q
 import json
 from django_pandas.io import read_frame
 import re
 from . import views
 import pandas as pd
-df_product,df_product_combine,product_column,product_column_combine = views.inscope_product_details()
+df_product,df_product_combine,product_column = views.inscope_product_details()
 
 @csrf_exempt
 def basic_properties(requests):
@@ -55,7 +55,6 @@ def basic_properties(requests):
                 spec_df = spec_df.drop(columns=["MATERIAL NUMBER"])
                 spec_df.drop_duplicates(inplace=True)
                 spec_df=spec_df.reset_index(drop=True)
-                print(spec_df)
                 for item in range(len(spec_df)):
                     temp_df= spec_df_mat[spec_df_mat["SPEC-ID"]==spec_df.loc[item,"SPEC-ID"]]
                     product_level_dict["productName"]=spec_df.loc[item,"NAM PROD"]
@@ -66,7 +65,6 @@ def basic_properties(requests):
                     product_level_dict["Sales_Volume"]=''
                     product_level_dict["GHS_Information"]=''
                     product_level_dict["tab_modal"]='compositionModal'
-                    print(product_level_dict)
                     product_level_details.append(product_level_dict)
                     product_level_dict={}
 

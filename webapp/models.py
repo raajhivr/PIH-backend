@@ -8,13 +8,14 @@
 from django.db import models
 
 
-class ProductInscope(models.Model):
-    nam_prod = models.CharField(max_length=8000, blank=True, null=True)
-    bdt = models.CharField(max_length=8000, blank=True, null=True)
-    cas_no = models.CharField(max_length=8000, blank=True, null=True)
-    spec_id = models.CharField(max_length=8000, blank=True, null=True)
-    material_no = models.CharField(max_length=8000, primary_key=True)
-    
+class ProductInformation(models.Model):
+    type = models.CharField(db_column='Type', max_length=20)  # Field name made lowercase.
+    text1 = models.CharField(db_column='Text1', max_length=1000, blank=True, null=True)  # Field name made lowercase.
+    text2 = models.CharField(db_column='Text2', max_length=255)  # Field name made lowercase.
+    text3 = models.CharField(db_column='Text3', max_length=1000, blank=True, null=True)  # Field name made lowercase.
+    text4 = models.CharField(db_column='Text4', max_length=40, blank=True, null=True)  # Field name made lowercase.
+    subct = models.CharField(db_column='SUBCT', max_length=10, primary_key=True)  # Field name made lowercase.
+
     class Meta:
-        managed = False
-        db_table = '[momentive].[product_inscope]'
+        managed = False  # Created from a view. Don't remove.
+        db_table = 'product_information'
