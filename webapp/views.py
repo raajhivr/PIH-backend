@@ -59,14 +59,19 @@ def product_level_creation(product_df,product_category_map,type,subct,key,level_
     extract_column=[]
     for column,category in product_category_map:
         extract_column.append(column) 
-        category_count = len(temp_df[column].unique())
+        col_count=list(temp_df[column].unique())
+        if '-' in col_count:
+            col_count = list(filter(('-').__ne__, col_count))
+        # col_count=col_count.values().tolist()
+        # print(col_count)
+        category_count = len(col_count)
         total_count+=category_count
         display_category+=category+"("+str(category_count)+")|"
         json_category+= category+" | "  
                 
     display_category=display_category[:-1] 
     json_category=json_category[:-3]       
-    print(product_category_map)
+    # print(product_category_map)
     # print(display_category)
     # print(json_category)           
     temp_df=temp_df[extract_column].values.tolist()
@@ -235,6 +240,7 @@ def selected_products(requests):
                 product_level_flag=''
                 material_level_flag=''
                 cas_level_flag=''
+                add_df=pd.DataFrame()
                 data = requests.body.decode('utf-8')
                 data_json=json.loads(data)
                 print("selectedproducts",data_json)
@@ -271,64 +277,85 @@ def selected_products(requests):
                         #to find cas level details
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         column_value = temp_df["TEXT1"].unique()
-                        for item in column_value:  
-                            temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")
+                        temp_df=pd.DataFrame()
+                        for item in column_value: 
+                            add_df = edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")
                         
                     elif material_level_flag=='s' and material_count==2 and cas_level_flag=='':
                         #to find cas level details
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         column_value = temp_df["TEXT1"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:  
-                            temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL","yes")
+                            add_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL","yes")
                     elif cas_level_flag=='s' and cas_count==2 and material_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT1"]==cas_pspec)]
                         column_value = temp_df["TEXT2"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:
-                            temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
+                            add_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
 
                 elif material_level_flag =='s':
                     if product_level_flag =='' and cas_level_flag=='':
                         print("mat",material_number)        
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT1"]==material_number)]
                         column_value = temp_df["TEXT2"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:
                             # product level details
-                            temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
+                            add_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                             #cas level details
-                            temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==item)]
-                            sub_column_value = temp_df["TEXT1"].unique()
-                            for element in sub_column_value:  
-                                temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
-                                searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
+                        temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==item)]
+                        sub_column_value = temp_df["TEXT1"].unique()
+                        temp_df=pd.DataFrame()
+                        for element in sub_column_value:  
+                            add_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
                             
                     elif product_level_flag =='s' and product_count ==2 and cas_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         sub_column_value = temp_df["TEXT1"].unique()
+                        temp_df=pd.DataFrame()
                         for element in sub_column_value:  
-                            temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
+                            add_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
                             
                     elif cas_level_flag=='s' and cas_count==2 and product_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT1"]==cas_pspec)]
                         column_value = temp_df["TEXT2"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:
-                            temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
+                            add_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                             
                         # elif cas_level_flag=='s' and product_level_flag =='':
                 elif cas_level_flag=='s':
                     if product_level_flag =='' and material_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT1"]==cas_pspec)]
+                        # temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["TEXT2"]==item)]
+                        # searched_product_list=searched_product_list+product_level_creation(temp_df,product_nam_category,"","","RSPEC*","PRODUCT-LEVEL","yes")
                         column_value = temp_df["TEXT2"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:
-                            temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
-                            temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
+                            add_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")
+                        temp_df=pd.DataFrame()
+                        for item in column_value:                             
+                            add_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
 
                     elif product_level_flag =='s' and product_count ==2 and material_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==product_rspec)]
@@ -337,10 +364,12 @@ def selected_products(requests):
                     elif material_level_flag=='s' and material_count==2 and product_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT1"]==material_number)]
                         column_value = temp_df["TEXT2"].unique()
+                        temp_df=pd.DataFrame()
                         for item in column_value:
                             # product level details
-                            temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
+                            add_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
+                            temp_df=pd.concat([temp_df,add_df])    
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                     
                 # print("len of selectedproducts",len(searched_product_list))
                 # print(searched_product_list)
