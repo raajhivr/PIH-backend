@@ -10,10 +10,17 @@ import re
 import pandas as pd
 
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
+product_nam_category = [["TEXT1","NAM PROD"],["TEXT2","REAL-SPECID"],["TEXT3","SYNONYMS"]]
+product_rspec_category = [["TEXT2","REAL-SPECID"],["TEXT1","NAM PROD"],["TEXT3","SYNONYMS"]]
+product_namsyn_category = [["TEXT3","SYNONYMS"],["TEXT2","REAL-SPECID"],["TEXT1","NAM PROD"]]
+material_number_category = [["TEXT1","MATERIAL NUMBER"],["TEXT3","BDT"],["TEXT4","DESCRIPTION"]]
+material_bdt_category = [["TEXT3","BDT"],["TEXT1","MATERIAL NUMBER"],["TEXT4","DESCRIPTION"]]
+cas_number_category = [["TEXT1","CAS NUMBER"],["TEXT2","PURE-SPECID"],["TEXT3","CHEMICAL-NAME"]]
+cas_pspec_category = [["TEXT2","PURE-SPECID"],["TEXT1","CAS NUMBER"],["TEXT3","CHEMICAL-NAME"]]
+cas_chemical_category = [["TEXT3","CHEMICAL-NAME"],["TEXT2","PURE-SPECID"],["TEXT1","CAS NUMBER"]]
 df_product = pd.read_excel(r"C:\Coding\momentive-backend\product_info_V2.xlsx",sheet_name="Sheet1")
 # df_product = read_frame(ProductInformation.objects.all())
-print(len(df_product))
-product_type = [["BDTEXT","BDT","BDT*"],["MATNBR","MATERIAL NUMBER","MAT*"],["NAMPROD","NAM PROD","NAM*"],["NAMSYN","NAMPROD SYNONYMS","SYN*"],["NUMCAS","CAS NUMBER","CAS*"],["NAMCAS","CHEMICAL NAME","CHEMICAL*"],["REALSUB","REAL-SPEC","RSPEC*"],["PURESUB","PURE-SPEC","PSPEC*"]]
+# print(len(df_product))
 df_product.drop_duplicates(inplace=True)
 df_product.columns=product_column
 df_product=df_product.fillna(" - ")
@@ -36,14 +43,46 @@ def selected_data_details():
     global selected_data_json
     return selected_data_json
 
+def product_level_creation(product_df,product_category_map,type,subct,key,level_name,filter_flag="no"):
+    json_list=[]
+    if filter_flag=="no":
+        if type !='' and subct !='':
+            temp_df=product_df[(product_df["TYPE"]==type) & (product_df["SUBCT"]==subct)]
+        else:
+            temp_df=product_df[(product_df["TYPE"]==type)]
+    else:
+        temp_df=product_df
+        
+    total_count=0
+    display_category=''
+    json_category=''
+    extract_column=[]
+    for column,category in product_category_map:
+        extract_column.append(column) 
+        category_count = len(temp_df[column].unique())
+        total_count+=category_count
+        display_category+=category+"("+str(category_count)+")|"
+        json_category+= category+" | "  
+                
+    display_category=display_category[:-1] 
+    json_category=json_category[:-3]       
+    print(product_category_map)
+    # print(display_category)
+    # print(json_category)           
+    temp_df=temp_df[extract_column].values.tolist()
+    for value1,value2,value3 in temp_df:
+        value = str(value1).strip() + " | "+str(value2).strip()+" | "+str(value3).strip()
+        out_dict={"name":value,"type":json_category,"key":key,"group":level_name+"("+display_category+")"+" - "+str(total_count) }
+        json_list.append(out_dict)
+    # print(json_list)
+    return json_list
 @csrf_exempt
 def all_products(requests):
     try:
         if requests.method=="POST":
             try: 
-                selected_categories=["BDT*","MAT*","NAM*","CAS*","CHEMICAL*","RSPEC*","PSPEC*","SYN*"]
-                search_category = ["TEXT1","TEXT2","TEXT3"]
                 category_type = ["MATNBR","NUMCAS","NAMPROD"]
+                search_category = ["TEXT1","TEXT2","TEXT3"]
                 search_field=''
                 data=''
                 data_json=''
@@ -56,116 +95,85 @@ def all_products(requests):
                 data_json=json.loads(data)
                 search = data_json.get("SearchData",None).strip()
                 res=''
+                selected_categories=["BDT*","MAT*","NAM*","CAS*","CHEMICAL*","RSPEC*","PSPEC*","SYN*","SPEC*"]                   
                 if "*" in search:
                     search_split=search.split('*')
                     search_key=search_split[0]+"*"
                     search_value = search_split[1].strip()
-
+                    print(search_key)
                 if len(search)>=3 and (search_key.upper() in selected_categories or search.upper() in selected_categories):
-                    print("typecat",search_key)
-                    print("typeval",search_value)
                     all_product_list=[]                  
                     rex=re.compile(r"(^{})".format(search_value),re.I)
+
                     if search_key.upper()=="NAM*":
                         if len(search_value)>0:                     
                             edit_df=df_product_combine[df_product_combine["TEXT1"].astype(str).str.contains(rex,na=False)]
                         else:
-                            edit_df=df_product_combine.copy()                    
-                        temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB")]
-                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                        for namprod, rspec, namsyn in temp_df:
-                            value = str(namprod).strip() + " | "+str(rspec).strip()+" | "+str(namsyn).strip()
-                            category = "NAM PROD | REAL-SPEC | SYNONYMS"
-                            out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                            edit_df=df_product_combine.copy() 
+                        all_product_list=product_level_creation(edit_df,product_nam_category,"NAMPROD","REAL_SUB","NAM*","PRODUCT-LEVEL")                  
+                        
                     elif search_key.upper() == "RSPEC*":
                         if len(search_value)>0:                     
                             edit_df=df_product_combine[df_product_combine["TEXT2"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df = edit_df[(edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TYPE"]=="NAMPROD")]  
-                        temp_df = temp_df[["TEXT2","TEXT1","TEXT3"]].values.tolist()
-                        for rspec, namprod, namsyn in temp_df:
-                            value = str(rspec).strip() + " | " + str(namprod).strip() + " | " + str(namsyn).strip()
-                            category = "REAL-SPEC | NAMPROD | SYNONYMS"
-                            out_dict={"name":value,"type":category,"key":"RSPEC*","group":"PRODUCT-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")   
+                        
                     elif search_key.upper() == "SYN*":
                         if len(search_value)>0:                     
                             edit_df=df_product_combine[df_product_combine["TEXT3"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB")]
-                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                        for namprod, rspec, namsyn in temp_df:
-                            value = str(namsyn).strip() + " | "+str(rspec).strip() +" | "+str(namprod).strip()
-                            category = "SYNONYMS | REAL-SPEC | NAM PROD"
-                            out_dict={"name":value,"type":category,"key":"SYN*","group":"PRODUCT-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,product_namsyn_category,"NAMPROD","REAL_SUB","SYN*","PRODUCT-LEVEL") 
+                        
 
                     elif search_key.upper()=="BDT*":
                         if len(search_value)>0:
                             edit_df=df_product_combine[df_product_combine["TEXT3"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df=edit_df[edit_df["TYPE"]=="MATNBR"]
-                        print(edit_df)
-                        temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                        for matnr, bdt, desc in temp_df:
-                            value =  str(bdt).strip()+" | "+str(matnr).strip()+" | "+str(desc).strip()
-                            category = "BDT | MATERIAL NUMBER | DESCRIPTION"
-                            out_dict={"name":value,"type":category,"key":"BDT*","group":"MATERIAL-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,material_bdt_category,"MATNBR",'',"BDT*","MATERIAL-LEVEL")
+
                     elif search_key.upper()=="MAT*": 
                         if len(search_value)>0:
-                            edit_df=df_product_combine[df_product_combine["TEXT1"].astype(str).str.contains(rex,na=False)]
+                            edit_df=df_product_combine[df_product_combine["TEXT3"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df=edit_df[edit_df["TYPE"]=="MATNBR"]
-                        temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                        for matnr, bdt, desc in temp_df:
-                            value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                            category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                            out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,material_number_category,"MATNBR",'',"MAT*","MATERIAL-LEVEL")
+
                     elif search_key.upper()=="CAS*":
                         if len(search_value)>0:
                             edit_df=df_product_combine[df_product_combine["TEXT1"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB")]
-                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                        for numcas, pspec, namcas in temp_df:
-                            value = str(numcas).strip() + " | "+str(pspec).strip()+" | "+str(namcas).strip()
-                            category = "CAS NUMBER | PURE-SPEC | CHEMICAL NAME"
-                            out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL")
+                       
                     elif search_key.upper()=="CHEMICAL*":
                         if len(search_value)>0:
                             edit_df=df_product_combine[df_product_combine["TEXT3"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB")]
-                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                        for numcas, pspec, namcas in temp_df:
-                            value = str(namcas).strip() + " | "+str(pspec).strip() + " | "+str(numcas).strip()
-                            category = "CHEMICAL NAME | PURE-SPEC | CAS NUMBER"
-                            out_dict={"name":value,"type":category,"key":"SYN*","group":"PRODUCT-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,cas_chemical_category,"NUMCAS","PURE_SUB","CHEMICAL*","CAS-LEVEL")
+                    
+                    elif  search_key.upper()=="SPEC*": 
+                        if len(search_value)>0:
+                            edit_df=df_product_combine[df_product_combine["TEXT2"].astype(str).str.contains(rex,na=False)]
+                        else:
+                            edit_df=df_product_combine.copy()
+                        #for real specid 
+                        real_product_list=product_level_creation(edit_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")
+                        #for pure details    
+                        pure_product_list=product_level_creation(edit_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")                              
+                        all_product_list=real_product_list+pure_product_list
+
                     else:
                         if len(search_value)>0:
                             edit_df=df_product_combine[df_product_combine["TEXT2"].astype(str).str.contains(rex,na=False)]
                         else:
                             edit_df=df_product_combine.copy() 
-                        temp_df = edit_df[(edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TYPE"]=="NUMCAS")]  
-                        temp_df = temp_df[["TEXT2","TEXT1","TEXT3"]].values.tolist()
-                        for pspec, numcas, namcas in temp_df:
-                            value = str(pspec).strip() + " | " + str(numcas).strip() + " | " + str(namcas).strip()
-                            category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                            out_dict={"name":value,"type":category,"key":"PSPEC*","group":"CAS-LEVEL ("+category+")" }
-                            all_product_list.append(out_dict)
+                        all_product_list=product_level_creation(edit_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")
 
-                    print("len of all_product_list",len(all_product_list))
+                        
                     print(all_product_list[0:5])
                     return JsonResponse(all_product_list,content_type="application/json",safe=False)
                     
@@ -176,86 +184,29 @@ def all_products(requests):
                     for item in search_category:
                         edit_df=df_product_combine[df_product_combine[item].astype(str).str.contains(rex,na=False)]
                         if len(edit_df)>0:
-                            print("item",item)
                             if item=="TEXT2": 
-                                #for pure specid 
-                                temp_df = edit_df[(edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TYPE"]=="NAMPROD")]  
-                                temp_df = temp_df[["TEXT2","TEXT1","TEXT3"]].values.tolist()
-                                for rspec, namprod, namsyn in temp_df:
-                                    value = str(rspec).strip() + " | " + str(namprod).strip() + " | " + str(namsyn).strip()
-                                    category = "REAL-SPEC | NAMPROD | SYNONYMS"
-                                    out_dict={"name":value,"type":category,"key":"RSPEC*","group":"PRODUCT-LEVEL ("+category+")" }
-                                    all_product_list.append(out_dict)
-                                temp_df = edit_df[(edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TYPE"]=="NUMCAS")]  
-                                temp_df = temp_df[["TEXT2","TEXT1","TEXT3"]].values.tolist()
-                                for pspec, numcas, namcas in temp_df:
-                                    value = str(pspec).strip() + " | " + str(numcas).strip() + " | " + str(namcas).strip()
-                                    category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                                    out_dict={"name":value,"type":category,"key":"PSPEC*","group":"CAS-LEVEL ("+category+")" }
-                                    all_product_list.append(out_dict)
-                                temp_df = pd.DataFrame()
+                                #for real specid 
+                                all_product_list=all_product_list+product_level_creation(edit_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")
+                                #cas level details    
+                                all_product_list=all_product_list+product_level_creation(edit_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")                              
+                                
                             elif item=="TEXT1":
-                                print("text2")
                                 for ctype in category_type:
                                     if ctype=="MATNBR":
-                                        temp_df=edit_df[edit_df["TYPE"]==ctype]
-                                        temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                                        for matnr, bdt, desc in temp_df:
-                                            value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                                            category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                                            out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict)
+                                        all_product_list=all_product_list+product_level_creation(edit_df,material_number_category,"MATNBR",'',"MAT*","MATERIAL-LEVEL")
                                     elif ctype=="NUMCAS":
-                                        temp_df=edit_df[(edit_df["TYPE"]==ctype) & (edit_df["SUBCT"]=="PURE_SUB")]
-                                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                                        for numcas, pspec, namcas in temp_df:
-                                            value = str(numcas).strip() + " | "+str(pspec).strip()+" | "+str(namcas).strip()
-                                            category = "CAS NUMBER | PURE-SPEC | CHEMICAL NAME"
-                                            out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict)
+                                        all_product_list=all_product_list+product_level_creation(edit_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL")
                                     else:
-                                        print("esle namprod",ctype)
-                                        print(edit_df)
-                                        temp_df=edit_df[(edit_df["TYPE"]==ctype) & (edit_df["SUBCT"]=="REAL_SUB")]
-                                        print(edit_df)
-                                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                                        for namprod, rspec, namsyn in temp_df:
-                                            value = str(namprod).strip() + " | "+str(rspec).strip()+" | "+str(namsyn).strip()
-                                            category = "NAM PROD | REAL-SPEC | SYNONYMS"
-                                            out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict)
-                                temp_df = pd.DataFrame()
+                                        all_product_list=all_product_list+product_level_creation(edit_df,product_nam_category,"NAMPROD","REAL_SUB","NAM*","PRODUCT-LEVEL")
                             else:
-                                print("else bdt")
                                 category_text3=["MATNBR","NAMPROD","NUMCAS"]
                                 for ctype in category_text3:
                                     if ctype == "MATNBR":
-                                       temp_df=edit_df[edit_df["TYPE"]==ctype]
-                                       print(edit_df)
-                                       temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                                       for matnr, bdt, desc in temp_df:
-                                            value =  str(bdt).strip()+" | "+str(matnr).strip()+" | "+str(desc).strip()
-                                            category = "BDT | MATERIAL NUMBER | DESCRIPTION"
-                                            out_dict={"name":value,"type":category,"key":"BDT*","group":"MATERIAL-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict) 
+                                        all_product_list=all_product_list+product_level_creation(edit_df,material_bdt_category,"MATNBR",'',"BDT*","MATERIAL-LEVEL")
                                     elif ctype == "NAMPROD":
-                                        temp_df=edit_df[(edit_df["TYPE"]==ctype) & (edit_df["SUBCT"]=="REAL_SUB")]
-                                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                                        for namprod, rspec, namsyn in temp_df:
-                                            value = str(namsyn).strip() + " | "+str(rspec).strip()+ " | "+str(namprod).strip() 
-                                            category = "SYNONYMS | REAL-SPEC | NAM PROD"
-                                            out_dict={"name":value,"type":category,"key":"SYN*","group":"PRODUCT-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict)
+                                        all_product_list=all_product_list+product_level_creation(edit_df,product_namsyn_category,"NAMPROD","REAL_SUB","SYN*","PRODUCT-LEVEL")
                                     else:
-                                        temp_df=edit_df[(edit_df["TYPE"]==ctype) & (edit_df["SUBCT"]=="PURE_SUB")]
-                                        temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                                        for numcas, pspec, namcas in temp_df:
-                                            value = str(namcas).strip() + " | "+str(pspec).strip() + " | "+str(numcas).strip()
-                                            category = "CHEMICAL NAME | PURE-SPEC | CAS NUMBER"
-                                            out_dict={"name":value,"type":category,"key":"SYN*","group":"PRODUCT-LEVEL ("+category+")" }
-                                            all_product_list.append(out_dict)
-                                temp_df = pd.DataFrame()
-
+                                        all_product_list=all_product_list+product_level_creation(edit_df,cas_chemical_category,"NUMCAS","PURE_SUB","CHEMICAL*","CAS-LEVEL")
                     print("len of all_product_list",len(all_product_list))
                     print(all_product_list[0:5])
                     res=sorted(all_product_list, key=lambda k: k['type'])
@@ -301,7 +252,7 @@ def selected_products(requests):
                     if search_group == "PRODUCT-LEVEL":
                         product_level_flag = 's'
                         product_count = count
-                        product_rspec = search_value_split[search_column_split.index("REAL-SPEC")]
+                        product_rspec = search_value_split[search_column_split.index("REAL-SPECID")]
                     if search_group == "MATERIAL-LEVEL":
                         material_level_flag = 's'
                         material_count = count
@@ -309,53 +260,34 @@ def selected_products(requests):
                     if search_group == "CAS-LEVEL":
                         cas_level_flag = 's'
                         cas_count = count
-                        cas_pspec = search_value_split[search_column_split.index("PURE-SPEC")]
+                        cas_pspec = search_value_split[search_column_split.index("PURE-SPECID")]
 
                 if product_level_flag=='s' and product_count==1:
                     if material_level_flag=='' and cas_level_flag=='':
                         print(product_rspec)
                         #to find material level details
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==product_rspec)]
-                        temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                        for matnr, bdt, desc in temp_df:
-                            value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                            category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                            out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                            searched_product_list.append(out_dict)
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
                         #to find cas level details
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         column_value = temp_df["TEXT1"].unique()
                         for item in column_value:  
                             temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for numcas, pspec, namcas in temp_df:
-                                value = str(pspec).strip()+" | "+str(numcas).strip() + " | "+str(namcas).strip()
-                                category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                                out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")
+                        
                     elif material_level_flag=='s' and material_count==2 and cas_level_flag=='':
                         #to find cas level details
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         column_value = temp_df["TEXT1"].unique()
                         for item in column_value:  
                             temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for numcas, pspec, namcas in temp_df:
-                                value = str(pspec).strip()+" | "+str(numcas).strip() + " | "+str(namcas).strip()
-                                category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                                out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL","yes")
                     elif cas_level_flag=='s' and cas_count==2 and material_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT1"]==cas_pspec)]
                         column_value = temp_df["TEXT2"].unique()
                         for item in column_value:
                             temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                            for matnr, bdt, desc in temp_df:
-                                value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                                category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                                out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
 
                 elif material_level_flag =='s':
                     if product_level_flag =='' and cas_level_flag=='':
@@ -364,48 +296,29 @@ def selected_products(requests):
                         column_value = temp_df["TEXT2"].unique()
                         for item in column_value:
                             # product level details
-                            print(item)
                             temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for namprod, rspec, namsyn in temp_df:
-                                value = str(rspec).strip()+" | "+str(namprod).strip() + " | "+str(namsyn).strip()
-                                category = "REAL-SPEC | NAM PROD | SYNONYMS"
-                                out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
-                            
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                             #cas level details
                             temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==item)]
                             sub_column_value = temp_df["TEXT1"].unique()
                             for element in sub_column_value:  
                                 temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
-                                temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                                for numcas, pspec, namcas in temp_df:
-                                    value = str(pspec).strip()+" | "+str(numcas).strip() + " | "+str(namcas).strip()
-                                    category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                                    out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                                    searched_product_list.append(out_dict)
+                                searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
+                            
                     elif product_level_flag =='s' and product_count ==2 and cas_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT2"]==product_rspec)]
                         sub_column_value = temp_df["TEXT1"].unique()
                         for element in sub_column_value:  
                             temp_df=edit_df[(edit_df["TYPE"]=="NUMCAS") & (edit_df["SUBCT"]=="PURE_SUB") & (edit_df["TEXT2"]==element)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for numcas, pspec, namcas in temp_df:
-                                value = str(pspec).strip()+" | "+str(numcas).strip() + " | "+str(namcas).strip()
-                                category = "PURE-SPEC | CAS NUMBER | CHEMICAL NAME"
-                                out_dict={"name":value,"type":category,"key":"CAS*","group":"CAS-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,cas_number_category,"","","CAS*","CAS-LEVEL","yes")                         
+                            
                     elif cas_level_flag=='s' and cas_count==2 and product_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="SUBIDREL") & (edit_df["TEXT1"]==cas_pspec)]
                         column_value = temp_df["TEXT2"].unique()
                         for item in column_value:
                             temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for namprod, rspec, namsyn in temp_df:
-                                value = str(rspec).strip()+" | "+str(namprod).strip() + " | "+str(namsyn).strip()
-                                category = "REAL-SPEC | NAM PROD | SYNONYMS"
-                                out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
+                            
                         # elif cas_level_flag=='s' and product_level_flag =='':
                 elif cas_level_flag=='s':
                     if product_level_flag =='' and material_level_flag=='':
@@ -413,41 +326,21 @@ def selected_products(requests):
                         column_value = temp_df["TEXT2"].unique()
                         for item in column_value:
                             temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for namprod, rspec, namsyn in temp_df:
-                                value = str(rspec).strip()+" | "+str(namprod).strip() + " | "+str(namsyn).strip()
-                                category = "REAL-SPEC | NAM PROD | SYNONYMS"
-                                out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
-
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                             temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                            for matnr, bdt, desc in temp_df:
-                                value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                                category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                                out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
+
                     elif product_level_flag =='s' and product_count ==2 and material_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT2"]==product_rspec)]
-                        temp_df=temp_df[["TEXT1","TEXT3","TEXT4"]].values.tolist()
-                        for matnr, bdt, desc in temp_df:
-                            value = str(matnr).strip() + " | "+str(desc).strip()+" | "+str(bdt).strip()
-                            category = "MATERIAL NUMBER | DESCRIPTION | BDT"
-                            out_dict={"name":value,"type":category,"key":"MAT*","group":"MATERIAL-LEVEL ("+category+")" }
-                            searched_product_list.append(out_dict)
+                        searched_product_list=searched_product_list+product_level_creation(temp_df,material_number_category,"","","MAT*","MATERIAL-LEVEL","yes")
+
                     elif material_level_flag=='s' and material_count==2 and product_level_flag=='':
                         temp_df=edit_df[(edit_df["TYPE"]=="MATNBR") & (edit_df["TEXT1"]==material_number)]
                         column_value = temp_df["TEXT2"].unique()
                         for item in column_value:
                             # product level details
-                            print(item)
                             temp_df=edit_df[(edit_df["TYPE"]=="NAMPROD") & (edit_df["SUBCT"]=="REAL_SUB") & (edit_df["TEXT2"]==item)]
-                            temp_df=temp_df[["TEXT1","TEXT2","TEXT3"]].values.tolist()
-                            for namprod, rspec, namsyn in temp_df:
-                                value = str(rspec).strip()+" | "+str(namprod).strip() + " | "+str(namsyn).strip()
-                                category = "REAL-SPEC | NAM PROD | SYNONYMS"
-                                out_dict={"name":value,"type":category,"key":"NAM*","group":"PRODUCT-LEVEL ("+category+")" }
-                                searched_product_list.append(out_dict)
+                            searched_product_list=searched_product_list+product_level_creation(temp_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                          
                     
                 # print("len of selectedproducts",len(searched_product_list))
                 # print(searched_product_list)
